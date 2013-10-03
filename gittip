@@ -1,5 +1,6 @@
 #!/usr/local/bin/dopy
 
+import os
 import sys
 import requests
 

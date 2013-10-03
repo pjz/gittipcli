@@ -1,0 +1,80 @@
+#!/usr/local/bin/dopy
+
+import sys
+import requests
+
+USERNAME = os.environ.get('GITTIP_USERNAME')
+GT_AUTH = os.environ.get('GITTIP_AUTH')
+
+if not USERNAME:
+    print("No GITTIP_USERNAME in your environment, and one is required!")
+    sys.exit(1)
+
+if not GT_AUTH:
+    print("No GITTIP_AUTH in your environment, and one is required!")
+    sys.exit(1)
+
+AUTH = (GT_AUTH, '') # (username, password)
+
+# Debug infrastructure
+def debug_print(f):
+    print("DEBUG: " + f())
+
+def debug_noop(f):
+    pass
+
+debug = debug_noop
+
+# working code
+
+def max_new_take(curtake):
+    #result = max(float(curtake) * 2.0, 1.0) # gittip internal formula
+    result = float(curtake) * 100
+    debug(lambda: "Max new take is %s" % result)
+    return "%.2f" % result
+
+def do_get_take(args):
+    """get_take <team> [<team> ...]
+    get your take for the specified team(s).
+"""
+    
+    if len(args) < 1:
+        print("No teams specified.")
+        sys.exit(1)
+
+    for teamname in args:
+        url = "https://www.gittip.com/%s/members/%s.json" % (teamname, USERNAME)
+        curtake = requests.get(url, auth=AUTH).json()['take']
+        print("%s: %s" % (teamname, curtake))
+
+
+def do_set_take(args):
+    """set_take <team[=take]> [<team[=take]> ...]
+    sets your take for the specified team(s).  If no take value is specified,
+    increase your take the maximum amount for that team.
+"""  
+
+    if len(args) < 1:
+        print("No teams specified.")
+        sys.exit(1)
+
+    teams = []
+    for teamtake in args:
+        if '=' in teamtake:
+            teamname, newtake = teamtake.split('=')
+        else:
+            teamname, newtake = teamtake, None
+        teams.append(teamname)
+
+        url = "https://www.gittip.com/%s/members/%s.json" % (teamname, USERNAME)
+
+        if newtake is None: # means max_new_take
+            curtake = requests.get(url, auth=AUTH).json()['take']
+            newtake = max_new_take(curtake)
+
+        result = requests.post(url, data = {'take': str(newtake)}, auth=AUTH)
+        if result.status_code != 200:
+            print("Error setting tip for team %s." % teamname)
+        
+    do_get_take(teams)
+

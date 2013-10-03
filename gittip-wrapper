@@ -1,0 +1,7 @@
+#!/bin/bash
+
+export GITTIP_USERNAME=
+export GITTIP_AUTH=
+
+/path/to/real/gittip "$@"
+

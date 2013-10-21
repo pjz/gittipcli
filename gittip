@@ -34,6 +34,19 @@ def max_new_take(curtake):
     debug(lambda: "Max new take is %s" % result)
     return "%.2f" % result
 
+def _user_take(teamname):
+    url = "https://www.gittip.com/%s/members/%s.json" % (teamname, USERNAME)
+    return requests.get(url, auth=AUTH).json()['take']
+
+def user_public(user):
+    url = "https://www.gittip.com/%s/public.json" % (user)
+    return requests.get(url, auth=AUTH).json()
+
+def user_receiving(user):
+    return user_public(user)['receiving']
+
+team_receiving = user_receiving
+
 def do_get_take(args):
     """get_take <team> [<team> ...]
     get your take for the specified team(s).
@@ -44,15 +57,16 @@ def do_get_take(args):
         sys.exit(1)
 
     for teamname in args:
-        url = "https://www.gittip.com/%s/members/%s.json" % (teamname, USERNAME)
-        curtake = requests.get(url, auth=AUTH).json()['take']
-        print("%s: %s" % (teamname, curtake))
+        curtake  = _user_take(teamname)
+        curtake_percent = float(curtake) / float(team_receiving(teamname)) * 100.0
+        print("%s: %s (%2.2f%%)" % (teamname, curtake, curtake_percent))
 
 
 def do_set_take(args):
     """set_take <team[=take]> [<team[=take]> ...]
     sets your take for the specified team(s).  If no take value is specified,
     increase your take the maximum amount for that team.
+    A bare number is a dollar amount. A trailing % turns it into a percentage.
 """  
 
     if len(args) < 1:
@@ -61,10 +75,13 @@ def do_set_take(args):
 
     teams = []
     for teamtake in args:
-        if '=' in teamtake:
-            teamname, newtake = teamtake.split('=')
-        else:
+       
+        if not '=' in teamtake:
             teamname, newtake = teamtake, None
+        else:
+            teamname, newtake = teamtake.split('=')
+            if newtake.endswith('%'):
+                newtake = float(newtake[:-1]) * float(team_receiving(teamname)) / 100.0
         teams.append(teamname)
 
         url = "https://www.gittip.com/%s/members/%s.json" % (teamname, USERNAME)
